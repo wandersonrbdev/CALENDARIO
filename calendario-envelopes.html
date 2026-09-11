@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Calendário de Entregas</title>
+
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                padding: 24px;
+                font-family: Arial, sans-serif;
+                color: #1f2937;
+                background: #f3f4f6;
+            }
+
+            .container {
+                max-width: 1100px;
+                margin: auto;
+            }
+
+            h1 {
+                margin: 0 0 8px;
+                color: #111827;
+            }
+
+            .subtitle {
+                margin-bottom: 24px;
+                color: #6b7280;
+            }
+
+            .title {
+                width: 100%;
+                max-width: 600px;
+                padding: 10px;
+                border: 2px solid transparent;
+                border-radius: 8px;
+                font-size: 32px;
+                font-weight: bold;
+                background: transparent;
+            }
+
+            .title:focus {
+                outline: none;
+                border-color: #6366f1;
+                background: white;
+            }
+
+            .summary {
+                display: flex;
+                gap: 12px;
+                flex-wrap: wrap;
+                margin-bottom: 24px;
+            }
+
+            .summary div {
+                padding: 14px 18px;
+                border-radius: 10px;
+                font-weight: bold;
+            }
+
+            .pending-count {
+                background: #e5e7eb;
+            }
+            .delivered-count {
+                background: #bbf7d0;
+                color: #166534;
+            }
+            .not-delivered-count {
+                background: #fecaca;
+                color: #991b1b;
+            }
+
+            .calendar {
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                gap: 12px;
+            }
+
+            .day {
+                min-height: 125px;
+                padding: 14px;
+                border: 2px solid transparent;
+                border-radius: 12px;
+                background: white;
+                box-shadow: 0 2px 8px #00000012;
+                cursor: pointer;
+                transition: 0.2s;
+            }
+
+            .day:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 5px 14px #00000020;
+            }
+
+            .day:focus {
+                outline: 3px solid #6366f1;
+            }
+
+            .day-number {
+                font-size: 25px;
+                font-weight: bold;
+                margin-bottom: 22px;
+            }
+
+            .status {
+                font-size: 14px;
+                font-weight: bold;
+            }
+
+            .pending {
+                background: #f3f4f6;
+                border-color: #d1d5db;
+            }
+
+            .delivered {
+                background: #dcfce7;
+                border-color: #86efac;
+                color: #166534;
+            }
+
+            .not-delivered {
+                background: #fee2e2;
+                border-color: #fca5a5;
+                color: #991b1b;
+            }
+
+            button {
+                margin: 24px 0;
+                padding: 11px 16px;
+                border: 0;
+                border-radius: 8px;
+                background: #4f46e5;
+                color: white;
+                font-weight: bold;
+                cursor: pointer;
+            }
+
+            button:hover {
+                background: #4338ca;
+            }
+
+            @media (max-width: 700px) {
+                .calendar {
+                    grid-template-columns: repeat(4, 1fr);
+                }
+            }
+
+            @media (max-width: 450px) {
+                body {
+                    padding: 14px;
+                }
+
+                .calendar {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+
+                .title {
+                    font-size: 25px;
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="container">
+            <input
+                id="title"
+                class="title"
+                value="Calendário de Entregas"
+                aria-label="Título do calendário"
+            />
+
+            <p class="subtitle">
+                Clique em um dia para marcar o status do envelope.
+            </p>
+
+            <div class="summary">
+                <div class="pending-count">
+                    Pendentes: <span id="pending">31</span>
+                </div>
+                <div class="delivered-count">
+                    Entregues: <span id="delivered">0</span>
+                </div>
+                <div class="not-delivered-count">
+                    Não entregues: <span id="notDelivered">0</span>
+                </div>
+            </div>
+
+            <div id="calendar" class="calendar"></div>
+
+            <button id="reset">Redefinir todos os dias</button>
+        </div>
+
+        <script>
+            const STORAGE_KEY = "calendario-entregas";
+
+            const saved = JSON.parse(
+                localStorage.getItem(STORAGE_KEY) || "null",
+            );
+
+            const data = saved || {
+                title: "Calendário de Entregas",
+                days: Array(31).fill("pending"),
+            };
+
+            const title = document.getElementById("title");
+            const calendar = document.getElementById("calendar");
+
+            title.value = data.title;
+
+            const statuses = {
+                pending: {
+                    label: "⏳ Pendente",
+                    className: "pending",
+                },
+                delivered: {
+                    label: "✅ Entregue",
+                    className: "delivered",
+                },
+                notDelivered: {
+                    label: "❌ Não entregue",
+                    className: "not-delivered",
+                },
+            };
+
+            function save() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            }
+
+            function nextStatus(status) {
+                if (status === "pending") return "delivered";
+                if (status === "delivered") return "notDelivered";
+                return "pending";
+            }
+
+            function updateSummary() {
+                document.getElementById("pending").textContent =
+                    data.days.filter((day) => day === "pending").length;
+
+                document.getElementById("delivered").textContent =
+                    data.days.filter((day) => day === "delivered").length;
+
+                document.getElementById("notDelivered").textContent =
+                    data.days.filter((day) => day === "notDelivered").length;
+            }
+
+            function render() {
+                calendar.innerHTML = "";
+
+                data.days.forEach((status, index) => {
+                    const day = document.createElement("div");
+                    const info = statuses[status];
+
+                    day.className = `day ${info.className}`;
+                    day.tabIndex = 0;
+                    day.setAttribute(
+                        "aria-label",
+                        `Dia ${index + 1}: ${info.label}`,
+                    );
+
+                    day.innerHTML = `
+          <div class="day-number">Dia ${index + 1}</div>
+          <div class="status">${info.label}</div>
+        `;
+
+                    function changeStatus() {
+                        data.days[index] = nextStatus(data.days[index]);
+                        save();
+                        render();
+                        updateSummary();
+                    }
+
+                    day.addEventListener("click", changeStatus);
+
+                    day.addEventListener("keydown", (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            changeStatus();
+                        }
+                    });
+
+                    calendar.appendChild(day);
+                });
+
+                updateSummary();
+            }
+
+            title.addEventListener("input", () => {
+                data.title = title.value || "Calendário de Entregas";
+                save();
+            });
+
+            document.getElementById("reset").addEventListener("click", () => {
+                if (confirm("Deseja redefinir todos os dias?")) {
+                    data.days = Array(31).fill("pending");
+                    save();
+                    render();
+                }
+            });
+
+            render();
+        </script>
+    </body>
+</html>
